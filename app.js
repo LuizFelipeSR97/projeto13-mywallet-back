@@ -25,9 +25,9 @@ app.use(express.json());
 } */
 
 const userSchema = joi.object({
-    name: joi.string().required,
-    email: joi.string().email().required,
-    password: joi.string().required
+    name: joi.string().required(),
+    email: joi.string().email().required(),
+    password: joi.string().required()
 })
 
 //transaction:
@@ -40,9 +40,9 @@ const userSchema = joi.object({
 
 const transactionSchema = joi.object({
     idUser: joi.string().required(),
-    description: joi.string().required,
-    value: joi.number().required,
-    type: joi.string().valid("+","-").required,
+    description: joi.string().required(),
+    value: joi.number().required(),
+    type: joi.string().valid("+","-").required(),
 })
 
 //session:
@@ -79,13 +79,29 @@ app.get("/users", async (req,res) =>{
 
 app.post("/users", async (req,res) => {
 
-    const user = {...req.body, password: bcrypt.hashSync(req.body.password, 10)}
+    const user = {name: req.body.name, email: req.body.email, password: bcrypt.hashSync(req.body.password, 10)}
+
+    const validation = userSchema.validate(user, { abortEarly: false 
+    });
+
+    if (validation.error) {
+        const errors = validation.error.details.map((detail) => detail.message);
+        res.status(422).send(errors);
+        return;
+    }
     
     try {
 
-        if (user && bcrypt.compareSync(req.body.password, user.password))
+        const userExists = await db.collection('users').findOne({email: user.email});
+
+        if (userExists) {
+            res.status(409).send("Esse e-mail já está cadastrado. Crie uma nova conta ou utilize um novo e-mail para realizar o cadastro.")
+            return
+        }
+
         await db.collection("users").insertOne(user);
         res.sendStatus(201)
+
     } catch (error) {
         res.status(500).send(error.message)
     }
@@ -197,6 +213,12 @@ app.get("/transactions", async (req,res) => {
 
 app.post("/transactions", async (req,res) => {
 
+    const newTransaction = {
+        idUser: req.body.idUser,
+        description: req.body.description,
+        value: req.body.value,
+        type: req.body.type}
+
     const transaction = {
         idUser: req.body.idUser,
         date: dayjs().format("DD/MM/YY"),
@@ -218,6 +240,15 @@ app.post("/transactions", async (req,res) => {
             value: 200, 
             type: "+"
         } */
+
+        const validation = transactionSchema.validate(newTransaction, { abortEarly: false 
+        });
+    
+        if (validation.error) {
+            const errors = validation.error.details.map((detail) => detail.message);
+            res.status(422).send(errors);
+            return;
+        }
         
         await db.collection("transactions").insertOne(transaction);
 
