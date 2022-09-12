@@ -1,14 +1,14 @@
 import axios from 'axios';
-import express from 'express';
 import cors from "cors";
-import dotenv from "dotenv";
+import dotenv from 'dotenv';
+dotenv.config();
+import express from 'express';
 import { MongoClient, ObjectId } from "mongodb";
 import joi from "joi";
 import dayjs from "dayjs";
 import bcrypt from 'bcrypt';
 import { v4 as uuid } from 'uuid';
 
-dotenv.config();
 const app = express();
 
 app.use(cors());
@@ -16,7 +16,7 @@ app.use(express.json());
 
 // Models of Schemas (JOI)
 
-//user example:
+//user:
 
 /* {
     name : "john", 
@@ -24,13 +24,13 @@ app.use(express.json());
     password : "johndriven" 
 } */
 
-/* const userSchema = joi.object({
+const userSchema = joi.object({
     name: joi.string().required,
-    email: joi.string().required,
+    email: joi.string().email().required,
     password: joi.string().required
-}) */
+})
 
-//transaction example:
+//transaction:
 
 /* {
     idUser: "631a03226141464d5f549a40", 
@@ -38,19 +38,26 @@ app.use(express.json());
     value: 200, 
     type: "+"} */
 
-/* const transactionSchema = joi.object({
-    idUser: joi.string().min(24).required(),
+const transactionSchema = joi.object({
+    idUser: joi.string().required(),
     description: joi.string().required,
     value: joi.number().required,
     type: joi.string().valid("+","-").required,
+})
+
+//session:
+
+/* {
+    email : "john@driven.com", 
+    password : "johndriven" 
+} */
+
+/* const userSchema = joi.object({
+    email: joi.string().required,
+    password: joi.string().required
 }) */
 
-//Conexão com o mongodb
-
-//Nao funciona o import do .env
-//const mongoClient = new MongoClient(process.env.MONGO_URI);
-
-const mongoClient = new MongoClient("mongodb://localhost:27017");
+const mongoClient = new MongoClient(process.env.MONGO_URI);
 let db;
 mongoClient.connect().then(() => {
   db = mongoClient.db("mywallet");
@@ -111,10 +118,10 @@ app.post("/sessions", async (req,res) => {
             return
         }
 
-        const token = uuid();
-
 
         //Se bater, vai criar um objeto em sessions contendo o id do usuario e o token
+
+        const token = uuid();
 
         await db.collection("sessions").insertOne({
             userId: user._id,
