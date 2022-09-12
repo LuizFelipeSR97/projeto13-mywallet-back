@@ -14,7 +14,7 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Models or Schemas (JOI)
+// Models of Schemas (JOI)
 
 //user example:
 
@@ -24,11 +24,11 @@ app.use(express.json());
     password : "johndriven" 
 } */
 
-const userSchema = joi.object({
+/* const userSchema = joi.object({
     name: joi.string().required,
     email: joi.string().required,
     password: joi.string().required
-})
+}) */
 
 //transaction example:
 
@@ -84,9 +84,15 @@ app.post("/users", async (req,res) => {
     }
 });  
 
-// User - Route
+// Sessions Route
 
-app.post("/user", async (req,res) => {
+app.post("/sessions", async (req,res) => {
+
+    //Vai apagar a ultima sessao que foi iniciada, ficando vazia colecao sessions
+
+    await db.collection("sessions").deleteOne({})
+
+    //Vai procurar se o email do login e a senha batem com o bd
 
     const {email, password} = req.body;
 
@@ -107,10 +113,16 @@ app.post("/user", async (req,res) => {
 
         const token = uuid();
 
+
+        //Se bater, vai criar um objeto em sessions contendo o id do usuario e o token
+
         await db.collection("sessions").insertOne({
             userId: user._id,
             token: token
         });
+
+
+        //Vai retornar o token pro front
 
         res.send(token)
 
@@ -119,29 +131,28 @@ app.post("/user", async (req,res) => {
     }
 });  
 
-// Sessions - Route
-
 app.get("/sessions", async (req,res) => {
-
-    const token = req.headers.token;
 
     try {
 
-        let idUser = await db.collection("sessions").findOne({token: token})
-        idUser = idUser.userId
+        // Vai procurar o id em sessions
 
-        const user = await db.collection("users").findOne({_id : idUser})
+        const user = await db.collection("sessions").find().toArray()
 
-        if (user===null){
-            res.sendStatus(404)
-            return
-        }
+        const idUser = user[0].userId
+        const token = user[0].token
 
-        const transactions = await db.collection("transactions").find({idUser: idUser}).toArray()
+        // Vai procurar o nome pelo id em users
 
-        res.send(transactions)
+        let name = await db.collection("users").find({_id: idUser}).toArray()
+        name=name[0].name
+
+        // Vai retornar um objeto contendo o id e o nome do usuario
+
+        res.send({id: idUser, name: name, token: token})
 
     } catch (error) {
+
         res.send(error.message)
     }
 });
@@ -168,7 +179,7 @@ app.get("/transactions", async (req,res) => {
             return
         }
 
-        const transactions = await db.collection("transactions").find({idUser: user._id}).toArray()
+        const transactions = await db.collection("transactions").find({idUser: (user._id).toString()}).toArray()
 
         res.send(transactions)
 
@@ -179,7 +190,19 @@ app.get("/transactions", async (req,res) => {
 
 app.post("/transactions", async (req,res) => {
 
+    const transaction = {
+        idUser: req.body.idUser,
+        date: dayjs().format("DD/MM/YY"),
+        description: req.body.description,
+        value: req.body.value,
+        type: req.body.type}
+
     try {
+
+        if (transaction===null){
+            res.sendStatus(404)
+            return
+        }        
 
         //Exemplo de body
         /* {
@@ -188,15 +211,7 @@ app.post("/transactions", async (req,res) => {
             value: 200, 
             type: "+"
         } */
-
-        const transaction = {
-            idUser: req.body.idUser,
-            date: dayjs().format("DD/MM/YY"),
-            description: req.body.description,
-            value: req.body.value,
-            type: req.body.type}
-
-
+        
         await db.collection("transactions").insertOne(transaction);
 
         res.send(transaction)
